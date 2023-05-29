@@ -1,0 +1,3 @@
+<launch>
+  <node name="simulator"  pkg="assignment_3" type="main.py" output="screen"/>
+</launch>

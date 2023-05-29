@@ -1,0 +1,4 @@
+<launch>
+  <node name="simulator"  pkg="assignment_1" type="main.py" output="screen"/>
+  <node name="driver" pkg="assignment_1" type="drive.py" output="screen"/>
+</launch>
