@@ -58,8 +58,8 @@ def planning(sx, sy, syaw, max_acceleration, dt):
 #=============================================
 def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
     global rx, ry
-    angle = np.radians(0)
-    speed = 50
+    angle = 0  # -50 ~ 50
+    speed = 50 # -50 ~ 50
     
     drive(angle, speed)
 
