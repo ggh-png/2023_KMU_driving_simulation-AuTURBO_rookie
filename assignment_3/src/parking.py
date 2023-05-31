@@ -38,6 +38,57 @@ def drive(angle, speed):
     xycar_msg.speed = int(speed)
     motor_pub.publish(xycar_msg)
 
+# 
+def pid_control(target, current, prev_error, integral, Kp, Ki, Kd):
+    error = target - current
+    integral += error
+    derivative = error - prev_error
+
+    output = Kp * error + Ki * integral + Kd * derivative
+
+    return output, error, integral
+
+#=============================================
+# 생성된 경로를 따라가는 함수
+# 파이게임 screen, 현재위치 x,y 현재각도, yaw
+# 현재속도 velocity, 최대가속도 max_acceleration 단위시간 dt 를 전달받고
+# 각도와 속도를 결정하여 주행한다.
+#=============================================
+
+def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
+    target_x = 1036  # 목표 x 위치
+    target_y = 162  # 목표 y 위치
+    target_yaw = 0  # 목표 각도
+
+    # PID 제어 게인 설정
+    Kp = 0.4
+    Ki = 0.01
+    Kd = 0.1
+
+    prev_error = 0.0
+    integral = 0.0
+
+
+    # 현재 위치와 각도 정보를 업데이트
+    current_x = x
+    current_y = y
+    current_yaw = yaw
+
+    # 목표 위치와 현재 위치 간의 거리와 각도 계산
+    distance = math.sqrt((target_x - current_x) ** 2 + (target_y - current_y) ** 2)
+    angle = math.atan2(target_y - current_y, target_x - current_x)
+    error_yaw = target_yaw - current_yaw
+
+    # PID 제어를 통해 주행 각도 계산
+    angle_output, prev_error, integral = pid_control(angle, error_yaw, prev_error, integral, Kp, Ki, Kd)
+
+    # PID 제어를 통해 주행 속도 계산
+    speed_output, prev_error, integral = pid_control(0, distance, prev_error, integral, Kp, Ki, Kd)
+
+    # 주행 각도와 속도를 모터에 전달하여 주행
+    drive(angle_output, speed_output)
+
+
 #=============================================
 # 경로를 생성하는 함수
 # 차량의 시작위치 sx, sy, 시작각도 syaw
@@ -50,16 +101,31 @@ def planning(sx, sy, syaw, max_acceleration, dt):
 
     return rx, ry
 
-#=============================================
-# 생성된 경로를 따라가는 함수
-# 파이게임 screen, 현재위치 x,y 현재각도, yaw
-# 현재속도 velocity, 최대가속도 max_acceleration 단위시간 dt 를 전달받고
-# 각도와 속도를 결정하여 주행한다.
-#=============================================
-def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
-    global rx, ry
-    angle = 0  # -50 ~ 50
-    speed = 50 # -50 ~ 50
-    
-    drive(angle, speed)
 
+# 메인 함수
+def main():
+    pygame.init()
+
+    # ROS 초기화
+    rospy.init_node('path_planning', anonymous=True)
+
+
+    # 초기 위치 및 각도 설정
+    start_x = 300
+    start_y = 300
+    start_yaw = -1.57
+
+    # 초기 속도 및 최대 가속도 설정
+    velocity = 0
+    max_acceleration = 10
+
+    # 단위 시간 설정
+    dt = 0.01
+
+    # 주행 제어 시작
+    tracking(screen, start_x, start_y, start_yaw, velocity, max_acceleration, dt)
+
+    pygame.quit()
+
+if __name__ == '__main__':
+    main()
