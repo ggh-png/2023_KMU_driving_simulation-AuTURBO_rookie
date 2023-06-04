@@ -47,6 +47,35 @@ def drive(angle, speed):
 def planning(sx, sy, syaw, max_acceleration, dt):
     global rx, ry
     print("Start Planning")
+    print("sx = %d sy = %d syaw = %d max_acceleration = %d dt = %f" % (sx, sy, syaw, max_acceleration, dt))
+
+    # 출발점과 도착점 연결을 위한 직선 경로 생성
+    dx = sx - P_END[0]
+    dy = sy - P_END[1]
+    distance = math.sqrt(dx ** 2 + dy ** 2)
+    num_points = int(distance / 100) + 1  # 100 단위로 등간격으로 점 생성
+    rx = np.linspace(P_END[0], sx)
+    ry = np.linspace(P_END[1], sy)
+
+    # 시작각도와 종료각도 사이를 천천히 이동하는 경로 추가
+    yaw_diff = 45 - syaw
+    num_yaw_points = int(abs(yaw_diff) / 5) + 1  # 5도 단위로 등간격으로 각도 생성
+    yaw_values = np.linspace(syaw, 45, num_yaw_points)
+
+    if syaw > 45:
+        rx = np.append(rx, P_END[0])
+        ry = np.append(ry, P_END[1])
+    else:
+        rx = np.insert(rx, 0, P_END[0])
+        ry = np.insert(ry, 0, P_END[1])
+
+    for yaw in yaw_values:
+        dx = 10 * math.cos(math.radians(yaw))
+        dy = 10 * math.sin(math.radians(yaw))
+        new_x = rx[-1] + dx
+        new_y = ry[-1] + dy
+        rx = np.append(rx, new_x)
+        ry = np.append(ry, new_y)
 
     return rx, ry
 
@@ -58,8 +87,34 @@ def planning(sx, sy, syaw, max_acceleration, dt):
 #=============================================
 def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
     global rx, ry
-    angle = 0  # -50 ~ 50
-    speed = 50 # -50 ~ 50
+
+    # 현재 위치에서 가장 가까운 경로 상의 점을 찾음
+    current_point = np.array([x, y])
+    distances = np.linalg.norm(np.array([rx, ry]) - current_point, axis=1)
+    closest_index = np.argmin(distances)
+    target_point = np.array([rx[closest_index], ry[closest_index]])
+
+    # 차량의 방향 벡터와 타겟 점을 연결한 벡터를 계산
+    direction_vector = target_point - current_point
+
+    # 타겟 각도 계산
+    target_yaw = math.atan2(direction_vector[1], direction_vector[0])
+    target_yaw = math.degrees(target_yaw)
+
+    # 현재 각도와 타겟 각도의 차이 계산
+    angle_diff = target_yaw - yaw
+
+    # 각도 제한 (-50 ~ 50)
+    angle_diff = np.clip(angle_diff, -50, 50)
+
+    # 속도 제한 (-50 ~ 50)
+    speed = 50
+
+    drive(angle_diff, speed)
+
+    # global rx, ry
+    # angle = 0  # -50 ~ 50
+    # speed = 50 # -50 ~ 50
     
-    drive(angle, speed)
+    # drive(angle, speed)
 
