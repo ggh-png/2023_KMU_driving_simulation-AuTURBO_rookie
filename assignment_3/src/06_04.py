@@ -37,6 +37,8 @@ def drive(angle, speed):
     xycar_msg.speed = int(speed)
     motor_pub.publish(xycar_msg)
 
+
+
 #=============================================
 # parameter
 MAX_T = 100.0  # maximum time to the goal [s]
@@ -167,86 +169,46 @@ def quintic_polynomials_planner(sx, sy, syaw, sv, sa, gx, gy, gyaw, gv, ga, max_
     return rx, ry
 
 
-def planning(sx, sy, syaw, max_acceleration, dt):
-    global rx, ry
-    #=============================================
-    # 경로를 생성하는 함수
-    # 차량의 시작위치 sx, sy, 시작각도 syaw
-    # 최대가속도 max_acceleration, 단위시간 dt 를 전달받고
-    # 경로를 리스트를 생성하여 반환한다.
-    #=============================================
-    # sx: 시작 위치의 x 좌표 [미터]
-    # sy: 시작 위치의 y 좌표 [미터]
-    # syaw: 시작 상태의 선회각 (yaw angle) [라디안]
-    # sv: 시작 속도 [미터/초]
-    # sa: 시작 가속도 [미터/초^2]
-    # gx: 목표 위치의 x 좌표 [미터]
-    # gy: 목표 위치의 y 좌표 [미터]
-    # gyaw: 목표 상태의 선회각 (yaw angle) [라디안]
-    # gv: 목표 속도 [미터/초]
-    # ga: 목표 가속도 [미터/초^2]
-    # max_accel: 최대 가속도 [미터/초^2]
-    # max_jerk: 최대 제동도 [미터/초^3]
-    # dt: 시간 간격 [초]   
 
-    print("Start Planning")
-    print(syaw)
-    syaw = np.deg2rad(syaw)  # start yaw angle [rad]
-    sv = 0.5  # start speed [m/s]
-    sa = 0.1  # start accel [m/ss]
-    gx = P_ENTRY[0]  # goal x position [m]
-    gy = P_ENTRY[1]  # goal y position [m]
-    gyaw = np.deg2rad(200.0)  # goal yaw angle [rad]
-    gv = 1.0  # goal speed [m/s]
-    ga = 0.0  # goal accel [m/ss]
-    max_accel = 0.0  # max accel [m/ss]
-    max_jerk = 0.0  # max jerk [m/sss]
+#=============================================
+# 생성된 경로를 따라가는 함수
+# 파이게임 screen, 현재위치 x,y 현재각도, yaw
+# 현재속도 velocity, 최대가속도 max_acceleration 단위시간 dt 를 전달받고
+# 각도와 속도를 결정하여 주행한다.
+#=============================================
 
-
-    return quintic_polynomials_planner(
-        sx, sy, syaw, sv, sa, gx, gy, gyaw, gv, ga, max_accel, max_jerk, dt)
-    
-
-
-  
-    
-"""
-
-Path tracking simulation with pure pursuit steering and PID speed control.
-
-author: Atsushi Sakai (@Atsushi_twi)
-        Guillaume Jacquenot (@Gjacquenot)
-
-"""
 
 # Parameters
 k = 0.1  # look forward gain
-Lfc = 2.0  # [m] look-ahead distance
-Kp = 1.0  # speed proportional gain
-dt = 0.1  # [s] time tick
-WB = 2.9  # [m] wheel base of vehicle
+Lfc = 2.  # [m] look-ahead distance
 
-show_animation = True
+Kp = 1.  # speed proportional gain
+Ki = 0.00  # speed integral gain
+Kd = 0.01  # speed derivative gain
+
+# dt = 0.1  # [s] time tick
+WB = 20 # [m] wheel base of vehicle
 
 
 class State:
-    # state class
-    def __init__(self, x=0.0, y=0.0, yaw=0.0, v=0.0):
+
+    def __init__(self, x=0.0, y=0.0, yaw=0.0, v=0.0, dt=0.0):
         self.x = x
         self.y = y
         self.yaw = yaw
         self.v = v
         self.rear_x = self.x - ((WB / 2) * math.cos(self.yaw))
         self.rear_y = self.y - ((WB / 2) * math.sin(self.yaw))
-    # 현제 상태를 저장하는 클래스
+        self.dt = dt
+
     def update(self, a, delta):
-        self.x += self.v * math.cos(self.yaw) * dt
-        self.y += self.v * math.sin(self.yaw) * dt
-        self.yaw += self.v / WB * math.tan(delta) * dt
-        self.v += a * dt
+        self.x += self.v * math.cos(self.yaw) * self.dt
+        self.y += self.v * math.sin(self.yaw) * self.dt
+        self.yaw += self.v / WB * math.tan(delta) * self.dt
+        self.v += a * self.dt
         self.rear_x = self.x - ((WB / 2) * math.cos(self.yaw))
         self.rear_y = self.y - ((WB / 2) * math.sin(self.yaw))
-    # 남은 거리를 계산하는 함수
+
     def calc_distance(self, point_x, point_y):
         dx = self.rear_x - point_x
         dy = self.rear_y - point_y
@@ -271,7 +233,7 @@ class States:
 
 
 def proportional_control(target, current):
-    a = Kp * (target - current)
+    a = Kp * (target - current) + Ki * target + Kd * (target - current)
 
     return a
 
@@ -308,7 +270,7 @@ class TargetCourse:
 
         Lf = k * state.v + Lfc  # update look ahead distance
 
-        # ind : 현재 위치에서 가장 가까운 점의 인덱스
+        # search look ahead target point index
         while Lf > state.calc_distance(self.cx[ind], self.cy[ind]):
             if (ind + 1) >= len(self.cx):
                 break  # not exceed goal
@@ -316,10 +278,9 @@ class TargetCourse:
 
         return ind, Lf
 
-# 경로를 생성하는 함수
+# pure pursuit path tracking simulation
 def pure_pursuit_steer_control(state, trajectory, pind):
     ind, Lf = trajectory.search_target_index(state)
-
     if pind >= ind:
         ind = pind
 
@@ -334,67 +295,137 @@ def pure_pursuit_steer_control(state, trajectory, pind):
     alpha = math.atan2(ty - state.rear_y, tx - state.rear_x) - state.yaw
 
     delta = math.atan2(2.0 * WB * math.sin(alpha) / Lf, 1.0)
-
+    
     return delta, ind
 
 
+# def plot_arrow(x, y, yaw, length=1.0, width=0.5, fc="r", ec="k"):
+#     """
+#     Plot arrow
+#     """
+
+#     if not isinstance(x, float):
+#         for ix, iy, iyaw in zip(x, y, yaw):
+#             plot_arrow(ix, iy, iyaw)
+#     else:
+#         plt.arrow(x, y, length * math.cos(yaw), length * math.sin(yaw),
+#                   fc=fc, ec=ec, head_width=width, head_length=width)
+#         plt.plot(x, y)
+
+
+
 #=============================================
-# 생성된 경로를 따라가는 함수
-# 파이게임 screen, 현재위치 x,y 현재각도, yaw
-# 현재속도 velocity, 최대가속도 max_acceleration 단위시간 dt 를 전달받고
-# 각도와 속도를 결정하여 주행한다.
+# 경로를 생성하는 함수
+# 차량의 시작위치 sx, sy, 시작각도 syaw
+# 최대가속도 max_acceleration, 단위시간 dt 를 전달받고
+# 경로를 리스트를 생성하여 반환한다.
 #=============================================
-def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
+# sx: 시작 위치의 x 좌표 [미터]
+# sy: 시작 위치의 y 좌표 [미터]
+# syaw: 시작 상태의 선회각 (yaw angle) [라디안]
+# sv: 시작 속도 [미터/초]
+# sa: 시작 가속도 [미터/초^2]
+# gx: 목표 위치의 x 좌표 [미터]
+# gy: 목표 위치의 y 좌표 [미터]
+# gyaw: 목표 상태의 선회각 (yaw angle) [라디안]
+# gv: 목표 속도 [미터/초]
+# ga: 목표 가속도 [미터/초^2]
+# max_accel: 최대 가속도 [미터/초^2]
+# max_jerk: 최대 제동도 [미터/초^3]
+# dt: 시간 간격 [초]
+
+
+target_course = TargetCourse(rx, ry)
+time_cnt = 0.0
+# target_course = TargetCourse(rx, ry)
+# initial state
+states = States()
+target_ind = 0
+state = State()
+
+
+def planning(sx, sy, syaw, max_acceleration, dt):
     global rx, ry
-    angle = 0  # -50 ~ 50
-    speed = 50 # -50 ~ 50
+    global target_course
+    global state
+    global states
+    global time_cnt
+    print("acc", max_acceleration)
+    #=============================================
+    # 경로를 생성하는 함수
+    # 차량의 시작위치 sx, sy, 시작각도 syaw
+    # 최대가속도 max_acceleration, 단위시간 dt 를 전달받고
+    # 경로를 리스트를 생성하여 반환한다.
+    #=============================================
+    # sx: 시작 위치의 x 좌표 [미터]
+    # sy: 시작 위치의 y 좌표 [미터]
+    # syaw: 시작 상태의 선회각 (yaw angle) [라디안]
+    # sv: 시작 속도 [미터/초]
+    # sa: 시작 가속도 [미터/초^2]
+    # gx: 목표 위치의 x 좌표 [미터]
+    # gy: 목표 위치의 y 좌표 [미터]
+    # gyaw: 목표 상태의 선회각 (yaw angle) [라디안]
+    # gv: 목표 속도 [미터/초]
+    # ga: 목표 가속도 [미터/초^2]
+    # max_accel: 최대 가속도 [미터/초^2]
+    # max_jerk: 최대 제동도 [미터/초^3]
+    # dt: 시간 간격 [초]   
 
-    #  target course
-    # 
-    cx = np.arange(0, 50, 0.5)
-    cy = [math.sin(ix / 5.0) * ix / 2.0 for ix in cx]
-
-    target_speed = 10.0 / 3.6  # [m/s]
-
-    T = 100.0  # max simulation time
-
-    # initial state
-    state = State(x, y, yaw, velocity)
-
-    # 경로 리스트 길이 -1
-    lastIndex = len(rx) - 1
+    print("Start Planning")
+    print("sx: ", sx, "sy: ", sy, "syaw: ", syaw)
+    syaw = np.deg2rad(syaw+90)  # start yaw angle [rad]
+    sv = 8.5  # start speed [m/s]
+    sa = 0.1 # start accel [m/ss]
+    gx = P_END[0]  # goal x position [m]
+    gy = P_END[1]  # goal y position [m]
+    gyaw = np.deg2rad(-45)  # goal yaw angle [rad]
+    gv = 4.5  # goal speed [m/s]
+    ga = 0.1  # goal accel [m/ss]
+    max_accel = 1.0  # max accel [m/ss]
+    max_jerk = 10.5  # max jerk [m/sss]
 
 
-    time = 0.0
-    states = States()
-    states.append(time, state)
+    # rx, ry = [], []
+    # state = State()
+    time_cnt = 0.0
+    state = State(sx, sy, np.deg2rad(syaw), 20, dt)
+    rx, ry = quintic_polynomials_planner(
+        sx, sy, syaw, sv, sa, gx, gy, gyaw, gv, ga, max_accel, max_jerk, dt)
+    
+    # tracking
     target_course = TargetCourse(rx, ry)
-    target_ind, _ = target_course.search_target_index(state)
+    
+    return rx, ry
+    
+    
 
+
+
+def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
+    print("x: ", x, "y: ", y, "yaw: ", yaw, "velocity: ", velocity, "max_acceleration: ", max_acceleration, "dt: ", dt)
+    global rx, ry
+
+    global target_course
+    global states
+    global time_cnt
+    global target_ind
+
+    target_speed = 50  # -50 ~ 50
+    state = State(x, y, np.deg2rad(yaw), velocity, dt)
 
     # Calc control input
     ai = proportional_control(target_speed, state.v)
-    di, target_ind = pure_pursuit_steer_control(
-        state, target_course, target_ind)
-
+    di, target_ind = pure_pursuit_steer_control(state, target_course, target_ind)
     state.update(ai, di)  # Control vehicle
-
-    time += dt
-    states.append(time, state)
-
-
-    # Test
-    assert lastIndex >= target_ind, "Cannot goal"
-
-
-    drive(angle, speed)
-
-
-
-
-
-
-
-
-
-
+    # print("ai: ", ai, "di: ", di)
+    
+    drive(np.clip(np.rad2deg(di), -20, 20), ai)
+    time_cnt += dt
+    states.append(time_cnt, state)
+    
+    # 1. 현재위치와 각도를 전달받아서
+    # 2. 경로를 생성하고
+    # 3. 경로를 따라가도록 각도와 속도를 결정한다.
+    # 4. 각도와 속도를 결정하여 전달한다.
+    # 5. 전달받은 각도와 속도를 이용하여 주행한다.
+    # 6. 1로 돌아간다.
