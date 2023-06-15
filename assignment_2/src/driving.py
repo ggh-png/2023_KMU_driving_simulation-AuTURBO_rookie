@@ -8,19 +8,23 @@ import numpy as np
 import cv2
 import rospy, time
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
+#from cv_bridge import CvBridge
 from xycar_msgs.msg import xycar_motor
 from math import *
 import signal
 import sys
 import os
+import matplotlib.pyplot as plt
+
+from preprocessor import PreProcessor
+
 
 #=============================================
 # 터미널에서 Ctrl-c 키입력이로 프로그램 실행을 끝낼 때
 # 그 처리시간을 줄이기 위한 함수
 #=============================================
 def signal_handler(sig, frame):
-    time.sleep(3)
+    time.sleep(1)
     os.system('killall -9 python rosout')
     sys.exit(0)
 
@@ -30,7 +34,7 @@ signal.signal(signal.SIGINT, signal_handler)
 # 프로그램에서 사용할 변수, 저장공간 선언부
 #=============================================
 image = np.empty(shape=[0]) # 카메라 이미지를 담을 변수
-bridge = CvBridge()
+#bridge = CvBridge()
 motor = None # 모터 토픽을 담을 변수
 
 #=============================================
@@ -46,7 +50,9 @@ WIDTH, HEIGHT = 640, 480    # 카메라 이미지 가로x세로 크기
 #=============================================
 def img_callback(data):
     global image
-    image = bridge.imgmsg_to_cv2(data, "bgr8")
+    image = np.frombuffer(data.data, dtype=np.uint8).reshape(data.height, data.width, -1)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    #image = bridge.imgmsg_to_cv2(data, "bgr8")
 
 #=============================================
 # 모터 토픽을 발행하는 함수
@@ -61,7 +67,7 @@ def drive(angle, speed):
     motor_msg.angle = angle
     motor_msg.speed = speed
 
-    motor.publish(motor_msg)
+    #motor.publish(motor_msg)
 
 #=============================================
 # 실질적인 메인 함수
@@ -70,6 +76,13 @@ def drive(angle, speed):
 # 최종적으로 모터 토픽을 발행하는 일을 수행함.
 #=============================================
 def start():
+
+    roi_height = 200
+    roi_width = 640
+
+    pre_module = PreProcessor(roi_height, roi_width)
+
+    window_base_find_flag = False
 
     # 위에서 선언한 변수를 start() 안에서 사용하고자 함
     global motor, image
@@ -92,16 +105,31 @@ def start():
     # 카메라 토픽이 도착하는 주기에 맞춰 한번씩 루프를 돌면서
     # "이미지처리 + 차선위치찾기 + 조향각 결정 + 모터토픽 발행"
     # 작업을 반복적으로 수행함.
-    #=========================================
-    while not rospy.is_shutdown():
+    #========================================
 
+    while not rospy.is_shutdown():
+       
         # 이미지 처리를 위해 카메라 원본 이미지를 img에 복사 저장한다.
         img = image.copy()
 
-        # img를 화면에 출력한다.
-        #cv2.imshow("CAM View", img)
-        #cv2.waitKey(1)
+        rows, cols = img.shape[:2] # 이미지의 height, width 정보를 받아온다.
+        
+        cv2.imshow("origin", img)
+        cv2.waitKey(1)
 
+        warped_img = pre_module.warp_perspect(img)
+        cv2.imshow("warped_img", warped_img)
+
+
+        white_parts = pre_module.color_filter(warped_img)
+        #cv2.imshow("white_parts", white_parts)
+
+        msk, lx, ly, rx, ry = pre_module.sliding_window(white_parts)
+        cv2.imshow("Lane Detection - Sliding Windows", msk)
+
+        overlay_img = pre_module.overlay_line(warped_img, lx, ly, rx, ry)
+        cv2.imshow("Lane Detection - Overlay", overlay_img)
+        
         #=========================================
         # 핸들 조향각 값인 angle값 정하기.
         # 차선의 위치 정보를 이용해서 angle값을 설정함.
@@ -116,7 +144,7 @@ def start():
         #=========================================
 
         # 주행 속도를 결정
-        speed = 10
+        speed = 0
 
         # drive() 호출. drive()함수 안에서 모터 토픽이 발행됨.
         drive(angle, speed)

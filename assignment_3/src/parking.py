@@ -44,8 +44,7 @@ def drive(angle, speed):
 # 경로 및 주행 정보를 저장할 변수들 (경로의 좌표와, 해당 경로의 주행 방향-전진/후진-을 저장)
 # 2차원 배열로 저장하며, 각각의 배열은 각각의 경로를 의미한다.
 # path_x, path_y, rdirect는 각각 경로의 x좌표, y좌표, 주행 방향을 의미한다.
-# -- 이게 맞는지 모르겠음 --
-# rx, rt는 motion planning에서 waypoint를 탐색할 때 사용하는 변수이다. 
+# rx, rt는 모든 경로의 x좌표, 주행 방향을 의미한다. motion planning에서 waypoint를 탐색할 때 사용하는 변수이다. 
 # 예를 들어, path_x[0]은 첫번째 경로의 x좌표를 의미하고, path_y[0]은 첫번째 경로의 y좌표를 의미한다.
 # rdirect[0]은 첫번째 경로의 주행 방향을 의미한다.
 #============================================= 
@@ -87,7 +86,8 @@ def planning(sx, sy, syaw, max_acceleration, dt):
     # 좀 더 정확한 경로를 생성하기 위해 아래와 같이 3개의 단계로 나누었다. 
     # 1. 주자 라인 진입 100 픽셀 전에 경로를 생성한다.
     # 2. AR 태그의 위치에서 60 픽셀 전에 경로를 생성한다.
-    states = [(sx, sy, syaw+90), (P_ENTRY[0]-100, P_ENTRY[1]+100, -45), (AR[0]-57, AR[1]+57, -45)]
+    states = [(sx, sy, syaw+90), (P_ENTRY[0]-100, P_ENTRY[1]+100, -45), (AR[0]-55, AR[1]+55, -45)]
+
     # path planning 알고리즘을 사용하여 경로를 생성한다. reeds_shepp path planning algorithm 사용 
     # motion_planning.py 에서 제공하는 함수를 사용한다.
     # reeds_shepp 알고리즘의 workflow는 다음과 같다.
@@ -259,14 +259,14 @@ def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
         # n번째 경로의 방향 리스트의 첫번째 값이 -1이면 후진
         else:
             # 차량제어의 목표 속도를 설정한다.
-            target_speed = 30.0 
+            target_speed = 20.0 
             # 차량의 제어 알고리즘에서 사용될 parameter를 설정한다.
             # 전방 주행 차량이나 추종하고자 하는 경로와의 거리를 설정한다.
-            config.Ld = 70
+            config.Ld = 100
             # 차량의 정지거리
             config.dist_stop = 10
             # 전방 주행 idx와의 거리
-            config.dc = 1.68
+            config.dc = 60.68
 
         # 현재 지점에서 목표 지점까지의 거리를 계산한다.
         xt = node.x + config.dc * math.cos(node.yaw)
@@ -321,7 +321,7 @@ def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
         y_rec.append(node.y)
 
 
-#         #=================== 그래프 그리기 ===================#
+#         #=================== 그래프 시뮬레이션 ===================#
 #         # graph를 그린다.
 #         plt.cla()
 #         # 차량의 현 위치를 그린다.
