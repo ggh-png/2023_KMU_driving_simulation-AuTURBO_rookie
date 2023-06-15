@@ -65,7 +65,7 @@ while not rospy.is_shutdown():
         steer = 50
     elif steer < -50:
         steer = -50
-    # 조향각 결정 & 속도 결정
+    # 조향각, 속도 결정
     xycar_msg.angle = int(steer)
     xycar_msg.speed = 50
     # 조향각 및 속도 제어 메시지 전송
