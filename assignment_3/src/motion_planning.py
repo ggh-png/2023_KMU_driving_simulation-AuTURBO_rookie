@@ -181,7 +181,7 @@ def pure_pursuit(node, ref_path, index_old):
     return delta, ind
 
 # 차량의 속도를 pid 제어를 이용하여 계산하는 함수
-# 단 이번미션에서는 시뮬레이션 환경이기에 외부 환경의 영향을 받지 않기 때문에 pid 제어를 이용하지 않고
+# 단 이번미션에서는 시뮬레이션 환경이기에 외부 환경의 영향을 받지 않기 때문에 pid 제어를 이용하지 않는다.
 def pid_control(target_v, v, dist, direct):
     # pid 제어
     a = (C.Kp * (target_v - v) + C.Kd * (target_v - v) + C.Ki * (target_v - v)) * direct

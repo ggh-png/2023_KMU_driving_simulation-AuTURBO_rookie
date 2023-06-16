@@ -66,7 +66,7 @@ tracking_start = 1
 # 관계자의 문의를 통해 휠 베이스(WB)와 차량의 너비(W)를 알 수 있었고, 휠 베이스(WB)를 path planning 알고리즘에 적용하여 회전 반경을 계산하였다.
 # 경로 생성에 사용된 path planning 알고리즘은 reeds_shepp 알고리즘을 사용하였다.
 # path planning 함수는 motion_planning.py에 정의되어 있으며, 자세한 설명은 path_planning.py를 참고한다.
-#=============================================-
+#=============================================
 
 def planning(sx, sy, syaw, max_acceleration, dt):
     # planning 함수에서 생성한 경로를 tracking 함수에서 사용해야 하기 때문에 전역변수로 선언한다.
@@ -111,8 +111,6 @@ def planning(sx, sy, syaw, max_acceleration, dt):
 # if문을 사용하여 while문과 for문을 대체하였기 때문에, 블록이 달랐고, 이에 따라서 전역변수로 선언하였다. 
 # 전역변수로 선언한 변수는 다음과 같다.
 
-# yaw_old = 0.0
-
 # 차량의 주행 했던 경로를 저장하는 리스트 - 디버깅시 사용
 x_rec, y_rec = [], []
 
@@ -154,7 +152,6 @@ flag_for = 1
 #=============================================
 
 def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
-    # print("x ", x, "y ", y, "yaw ", yaw)
     # planning 함수에서 생성한 경로를 tracking 함수에서 사용해야 하기 때문에 전역변수로 선언한다.
     global rx, ry, ryaw, rdirect, path_x, path_y
     # tracking 함수를 시작할 때 1회만 실행되는 flag
