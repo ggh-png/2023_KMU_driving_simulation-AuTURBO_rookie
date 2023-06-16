@@ -5,16 +5,21 @@ import rospy, math
 from std_msgs.msg import Int32MultiArray
 from xycar_msgs.msg import xycar_motor
 
+# 초음파 센서 데이터를 저장하는 리스트 
 ultrasonicData = [0.0, 0.0, 0.0, 0.0, 0.0]
 
+# 초음파 센서 데이터를 저장하는 콜백 함수
 def callback(msg): 
     global ultrasonicData
     ultrasonicData = msg.data  
 
+# 노드 초기화 및 구독자, 발행자 설정
 rospy.init_node('driver')
+# 초음파 센서 데이터를 받아오는 구독자 설정
 rospy.Subscriber('ultrasonic', Int32MultiArray, callback)
+# 조향각 및 속도 제어 메시지를 발행하는 발행자 설정
 motor_pub = rospy.Publisher('xycar_motor', xycar_motor, queue_size=1)
-
+# 조향각 및 속도 제어 메시지 객체 생성
 xycar_msg = xycar_motor()
 
 # PID 제어 게인 값
