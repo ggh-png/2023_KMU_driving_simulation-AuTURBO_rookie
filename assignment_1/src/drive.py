@@ -18,7 +18,7 @@ motor_pub = rospy.Publisher('xycar_motor', xycar_motor, queue_size=1)
 xycar_msg = xycar_motor()
 
 # PID 제어 게인 값
-Kp = 2.5  # 비례 제어 게인
+Kp = 0.2  # 비례 제어 게인
 
 # 외란이 없는 시뮬레이션 환경이므로 적분 및 미분 제어는 고려하지 않음
 Ki = 0.0  # 적분 제어 게인
@@ -67,6 +67,7 @@ while not rospy.is_shutdown():
         steer = -50
     # 조향각, 속도 결정
     xycar_msg.angle = int(steer)
+    print("angle: ", xycar_msg.angle)
     xycar_msg.speed = 50
     # 조향각 및 속도 제어 메시지 전송
     motor_pub.publish(xycar_msg)
