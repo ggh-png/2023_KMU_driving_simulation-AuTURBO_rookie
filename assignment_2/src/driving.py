@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 #=============================================
@@ -71,6 +71,38 @@ def drive(angle, speed):
 
     motor.publish(motor_msg) # publish해주면 xycar는 지정해준 angle과 speed로 움직이게 된다.
 
+def centerFromEachMask(mask):
+    moment = cv2.moments(mask_left)
+    moment = cv2.moments(mask_right)
+
+    cx = int(moment['m10']/moment['m00'])
+    cy = int(moment['m01']/moment['m00']) 
+
+    return (cx, cy)
+
+
+def centerFromMask(mask, contour_left, contour_right):
+    global pre_mask, wb, searching
+
+    mask_left = mask
+    mask_right = mask
+
+    mask_left[:, contour_left:] = 0
+    mask_right[:, 0:contour_right] = 0
+
+    if np.all(mask_left + mask_right == 0): # xycar가 급격한 우회전을 하는 경우에는 오른쪽 차선이 카메라를 벗어나 보이지 않을 것이므로 mask에는 0만 저장되어 있을 것이다. 
+                          # 따라서 mask의 모든 numpy 배열 값이 0이라면, 
+        mask_left, mask_right = pre_mask_left, pre_mask_right # 이전 mask를 그대로 사용하고
+        wb += 1 # 바뀌지 않을 angle을 점점 더 크게 해주기 위해서 가중치 값을 더해줌
+        searching = False # 흰색 선이 여러개 감지된 경우가 아니므로 searching은 False
+            
+    else: # 차선이 인식되고 있는 상태라면
+        pre_mask_left, pre_mask_right = mask_left, mask_right # 흰색선이 보이지 않을 때 사용하기 위한 pre_mask에 현재의 mask값 저장
+        wb = 0 # 가중치는 초기화시켜줌
+        searching = True # searching은 다시 True로 설정
+    
+    return (centerFromEachMask(mask_left), centerFromEachMask(mask_right))
+
 #=============================================
 # 실질적인 메인 함수 
 # 카메라 토픽을 받아 각종 영상처리와 알고리즘을 통해
@@ -129,7 +161,8 @@ def start():
         search_bot = h * 3/4 + 20 
         mask[0:search_top, 0:w] = 0 
         mask[search_bot:h, 0:w] = 0
-        mask[:, 0:5*w/7] = 0
+
+        centerFromMask(mask, 2/7*w, 5/7*w)
 
         if np.all(mask == 0): # xycar가 급격한 우회전을 하는 경우에는 오른쪽 차선이 카메라를 벗어나 보이지 않을 것이므로 mask에는 0만 저장되어 있을 것이다. 
                               # 따라서 mask의 모든 numpy 배열 값이 0이라면, 
