@@ -5,24 +5,25 @@
 # 함께 사용되는 각종 파이썬 패키지들의 import 선언부
 #=============================================
 import numpy as np
-import cv2, math
-import rospy, rospkg, time
+import cv2
+import rospy, time
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge # ros와 opencv 연결해주는 bridge 역할을 해줌
+#from cv_bridge import CvBridge
 from xycar_msgs.msg import xycar_motor
 from math import *
 import signal
 import sys
 import os
-import random
+import matplotlib.pyplot as plt
+
+from preprocessor import PreProcessor
 
 #=============================================
-# 터미널에서 Ctrl-C 키입력으로 프로그램 실행을 끝낼 때
+# 터미널에서 Ctrl-c 키입력이로 프로그램 실행을 끝낼 때
 # 그 처리시간을 줄이기 위한 함수
 #=============================================
 def signal_handler(sig, frame):
-    import time
-    time.sleep(3)
+    time.sleep(1)
     os.system('killall -9 python rosout')
     sys.exit(0)
 
@@ -32,12 +33,9 @@ signal.signal(signal.SIGINT, signal_handler)
 # 프로그램에서 사용할 변수, 저장공간 선언부
 #=============================================
 image = np.empty(shape=[0]) # 카메라 이미지를 담을 변수
-pre_mask = np.empty(shape=[0]) # 카메라에 흰색 선이 보이지 않을 때 이전의 mask 이미지를 담을 변수
-bridge = CvBridge() 
+#bridge = CvBridge()
 motor = None # 모터 토픽을 담을 변수
-wb = 0 # 가중치
-searching = True # 카메라의 오른쪽 차선 여러개 보일 경우를 대비해서 xycar가 안쪽의 차선만을 따라가도록 제어해야한다. 이를 위해서 평소에 이미지의 중앙부터 오른쪽으로 차선을 다시 확인할 것인데
-                 # 그럴 필요가 없다면(오른쪽 차선이 아예 보이지 않을 경우) False, 평소에는 True
+
 
 #=============================================
 # 프로그램에서 사용할 상수 선언부
@@ -52,138 +50,158 @@ WIDTH, HEIGHT = 640, 480    # 카메라 이미지 가로x세로 크기
 #=============================================
 def img_callback(data):
     global image
-    image = bridge.imgmsg_to_cv2(data, "bgr8") # 받은 이미지메세지를 opencv로 넘겨주는 함수(rgb 8bit로) 
-    # 이후 opencv 함수를 사용하면 됨
+    image = np.frombuffer(data.data, dtype=np.uint8).reshape(data.height, data.width, -1)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    #image = bridge.imgmsg_to_cv2(data, "bgr8")
 
 #=============================================
-# 모터 토픽을 발행하는 함수  
-# 입력으로 받은 angle과 speed 값을 
+# 모터 토픽을 발행하는 함수
+# 입력으로 받은 angle과 speed 값을
 # 모터 토픽에 옮겨 담은 후에 토픽을 발행함.
 #=============================================
 def drive(angle, speed):
 
     global motor
 
-    motor_msg = xycar_motor() # motor_msg라는 xycar_motor class의 성질을 가지는 객체 생성
-                              # /xycar_motor 토픽에는 angle과 speed라는 int32형 데이터가 있기 때문에 
-    motor_msg.angle = angle # angle 값과
-    motor_msg.speed = speed # speed 값을 넣어주고
+    motor_msg = xycar_motor()
+    motor_msg.angle = angle
+    motor_msg.speed = speed
 
-    motor.publish(motor_msg) # publish해주면 xycar는 지정해준 angle과 speed로 움직이게 된다.
+    motor.publish(motor_msg)
 
 #=============================================
-# 실질적인 메인 함수 
+# 실질적인 메인 함수
 # 카메라 토픽을 받아 각종 영상처리와 알고리즘을 통해
 # 차선의 위치를 파악한 후에 조향각을 결정하고,
-# 최종적으로 모터 토픽을 발행하는 일을 수행함. 
+# 최종적으로 모터 토픽을 발행하는 일을 수행함.
 #=============================================
+
+errorPrev = 0
+proportional_gain = 0.8 #0.7
+integral_gain = 0 #0.0001
+derivative_gain = 2.00#8.5
+error_sum = 0
+
+def calculate_PID(reference_input, feedback_input):
+    global error_sum
+    global errorPrev
+    
+    error = reference_input - feedback_input   # Compute the error
+    error_sum = error_sum + error            # Compute the error sum
+    proportional_output = proportional_gain * error  # Compute the proportional output
+    integral_output = integral_gain*error_sum   # Compute the integral output
+    derivative_output = derivative_gain * (error - errorPrev) # Compute the derivative output
+    errorPrev = error
+
+    # Compute the pre-saturated output
+    presaturated_output = int(proportional_output + integral_output + derivative_output)
+    return presaturated_output
+
 def start():
 
-    # 아래에서 선언한 변수를 start() 안에서 사용하고자 함
-    global motor, image, pre_mask, wb, searching
+    roi_height = 200
+    roi_width = 640
+
+    pre_module = PreProcessor(roi_height, roi_width)
+
+    window_base_find_flag = False
+
+    # 위에서 선언한 변수를 start() 안에서 사용하고자 함
+    global motor, image
 
     #=========================================
     # ROS 노드를 생성하고 초기화 함.
     # 카메라 토픽을 구독하고 모터 토픽을 발행할 것임을 선언
     #=========================================
     rospy.init_node('driving')
-    motor = rospy.Publisher('xycar_motor', xycar_motor, queue_size=1) # 'xycar_motor'를 publish해주기 위한 변수
-    image_sub = rospy.Subscriber("/usb_cam/image_raw/",Image,img_callback) # /usb_cam/image_raw/ 데이터를 받는데 그 데이터의 형태는 Image이고 데이터를 받으면
-                                                                           # img_callback 함수 실행, 즉 xycar는 Image 형태의 데이터를 계속해서 보낼텐데 우리는 
-                                                                           # subsciber 노드를 통해서 이를 받을 때마다 img_callback함수를 실행시켜 opencv로 넘겨
-                                                                           # 주고 있다.
+    motor = rospy.Publisher('xycar_motor', xycar_motor, queue_size=1)
+    rospy.Subscriber("/usb_cam/image_raw/",Image, img_callback)
 
     print ("----- Xycar self driving -----")
 
     # 첫번째 카메라 토픽이 도착할 때까지 기다림.
-    while not image.size == (WIDTH * HEIGHT * 3):
-        continue
+    rospy.wait_for_message("/usb_cam/image_raw/", Image)
 
     #=========================================
-    # 메인 루프 
-    # 카메라 토픽이 도착하는 주기에 맞춰 한번씩 루프를 돌면서 
-    # "이미지처리 +차선위치찾기 +조향각결정 +모터토픽발행" 
+    # 메인 루프
+    # 카메라 토픽이 도착하는 주기에 맞춰 한번씩 루프를 돌면서
+    # "이미지처리 + 차선위치찾기 + 조향각 결정 + 모터토픽 발행"
     # 작업을 반복적으로 수행함.
-    #=========================================
+    #========================================
+
+    last_error = 0
+
     while not rospy.is_shutdown():
-        img = image.copy() # img_callback 함수에 의해서 opencv로 바뀐 카메라 원본이미지를 img에 복사하여 저장
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV) # bgr을 hsv로 바꿔줌
-        # 색상 : H ) 0 - 360 의 범위를 가지고, 가장 파장이 긴 빨간색을 0도로 지정한다.
-        # 채도 : S ) 0 - 100 의 범위를 가지고, 색상이 가장 진한 상태를 100으로 하며, 진함의 정도를 나타낸다.
-        # 명도 : V ) 0 - 100 의 범위를 가지고, 흰색, 빨간색을 100, 검은색이 0이며, 밝은 정도를 나타낸다.
-        angle = 0 # 초기 xycar의 각도 설정
+       
+        # 이미지 처리를 위해 카메라 원본 이미지를 img에 복사 저장한다.
+        img = image.copy()
 
-        lower_white = np.array([0,0,200]) # 흰색의 범위 설정 (hsv의 하한과 상한 결정)
-        upper_white = np.array([180,20,255])
-        mask = cv2.inRange(hsv, lower_white, upper_white) # 흰색의 범위 안에 들어가 있는 것만 image를 다시 땀 
+        rows, cols = img.shape[:2] # 이미지의 height, width 정보를 받아온다.
+        
+        cv2.imshow("origin", img)
+        cv2.waitKey(1)
 
-        h, w, d = img.shape # img의 높이(h) 너비(w)를 저장(깊이(d)도 2차원 이미지를 사용하므로 여기선 사용하지 않는다.) 있지만), 영상에서는 항상 왼쪽 위가 (0,0)이고 오르쪽 아래로 갈수록 숫자가 커짐
+        warped_img = pre_module.warp_perspect(img)
+        #cv2.imshow("warped_img", warped_img)
+
+        white_parts = pre_module.color_filter(warped_img)
+        #cv2.imshow("white_parts", white_parts)
+
+        msk, lx, ly, rx, ry = pre_module.sliding_window(white_parts)
+        
+
+        overlay_img = pre_module.overlay_line(warped_img, lx, ly, rx, ry)
+
+        if len(lx) != 0 and len(rx) != 0 :
+            target = (lx[0] + rx[0]) // 2
+            speed = 50
+        elif len(lx) != 0 and len(rx) == 0:
+            target = lx[0] + 50
+            #print("left only")
+            speed = 50
+        elif len(lx) == 0 and len(rx) != 0:
+            target = rx[0] - 50
+            speed = 50
+            #print("right only")
+        #print(f"target: {target}")
+        cv2.circle(msk, (target, 120), 3, (255, 0, 0), 4)
+        cv2.circle(msk, (320, 120), 3, (0, 0, 255), 2)
+        cv2.imshow("Lane Detection - Sliding Windows", msk)
+        
+        # error = target - 320
+        #print(f"error: {error}")
+        #cv2.imshow("Lane Detection - Overlay", overlay_img)
+
+        # kp = 1.1
+        # kd = 1.1
+
+        angle = calculate_PID(target, 320)
+        print(f"angle: {angle}")
+        
+        #=========================================
+        # 핸들 조향각 값인 angle값 정하기.
+        # 차선의 위치 정보를 이용해서 angle값을 설정함.
+        #=========================================
+
+        # 핸들을 얼마나 꺾을지 결정
+        #angle = 0
 
         #=========================================
-        # 반 위쪽은 사용하지 않기 때문에 이미지의 위쪽 3/4만큼은 자르고 높이가 20인 image 사용 
-        # 흰색만 딴 mask에서 searching_top ~ searching_bot에 해당하지 않는 부분은 다 0으로 바꿔서 버림
-        # 오른쪽 차선을 따라갈 것이기 때문에 필요없는 왼쪽 이미지를 4/7만큼 자름
-        # 즉 xycar는 높이: searching_top~searching_bot, 너비: 4*w/7 ~ w 이미지에 있는 흰색 선만 인식
+        # 차량의 속도 값인 speed값 정하기.
+        # 주행 속도를 조절하기 위해 speed값을 설정함.
         #=========================================
-        search_top = h * 3/4 
-        search_bot = h * 3/4 + 20 
-        mask[0:search_top, 0:w] = 0 
-        mask[search_bot:h, 0:w] = 0
-        mask[:, 0:5*w/7] = 0
 
-        if np.all(mask == 0): # xycar가 급격한 우회전을 하는 경우에는 오른쪽 차선이 카메라를 벗어나 보이지 않을 것이므로 mask에는 0만 저장되어 있을 것이다. 
-                              # 따라서 mask의 모든 numpy 배열 값이 0이라면, 
-            mask = pre_mask # 이전 mask를 그대로 사용하고
-            wb += 1 # 바뀌지 않을 angle을 점점 더 크게 해주기 위해서 가중치 값을 더해줌
-            searching = False # 흰색 선이 여러개 감지된 경우가 아니므로 searching은 False
-            
-        else: # 차선이 인식되고 있는 상태라면
-            pre_mask = mask # 흰색선이 보이지 않을 때 사용하기 위한 pre_mask에 현재의 mask값 저장
-            wb = 0 # 가중치는 초기화시켜줌
-            searching = True # searching은 다시 True로 설정
+        # 주행 속도를 결정
+        #speed = 50
 
-        M = cv2.moments(mask) # 색깔의 무게중심을 찾는 과정, 무게중심의 x, y축을 cx, cy에 저장
-        if M['m00'] > 0:
-            cx = int(M['m10']/M['m00'])
-            cy = int(M['m01']/M['m00']) 
-            
-            if searching: # 카메라의 오른쪽에 흰색 차선이 2개 이상이 보인다면 무게중심이 차선 위가 아닌 다른 곳에 무게중심이 잡히므로
-                if mask[cy,cx] == 0: # 무게중심이 흰색 차선 위가 아닌 다른 곳에 잡힌다면
-                    cx = w/2 # 무게중심의 cx를 w/2부터 시작해서 증가시키면서 
-                    while mask[cy,cx] == 0: # 가장 안쪽에 있는 흰색 차선을 찾고 이를 인식하도록 함.
-                        cx += 1
-
-            cv2.circle(img, (cx, cy), 10, (0, 0, 255), -1) # 흰색 이미지의 무게중심을 빨간색 원으로 찍어 표시
-            middle = cx - 200 # xycar는 도로의 중앙으로 가야하므로 cx(오른쪽 흰색 차선의 무게 중심)로부터 왼쪽으로 195정도 떨어져있는 곳을 도로의 중앙, xycar가 향해야하는 곳으로 설정   
-            cv2.circle(img, (middle,cy), 10, (0, 255, 0), -1) # 도로의 중앙을 초록색 원으로 표시
-            cv2.circle(img, (w/2,cy), 10, (255, 0, 0), -1) # 화면의 중앙을 파란색으로 표시
-            err = middle - w/2 # 화면의 중앙과 도로의 중앙의 차이를 err에 저장, 이 err에 비례해서 회전 각도 결정
-
-            # 만약 xycar가 우회전(angle > 0)을 한다면 오른쪽 차선은 인코스에 있고, 좌회전(angle < 0)을 한다면 오른쪽 차선이 아웃코스에 있기 때문에 우회전 할때에 비해서 좌회전 할 때의 err값이 더 작을
-            # 것이기 때문에 우회전 시에는 err을 8로 나눠주고 좌회전 시에는 err을 4로 나눠준다. 
-            if angle >= 0: 
-                angle = float(err)/8 + wb/165 # 오른쪽 차선이 안보일 경우 가중치를 추가
-                if angle > 19: # angle이 너무 커지지 않도록 19로 제한
-                    angle = 19
-            else:
-                angle = float(err)/4 # 좌회전을 할 때는 오른쪽 차선이 아웃코스로 차선이 안보일 경우가 없기 때문에 가중치가 필요 없음
-
-            print(angle)
-            cv2.imshow("CAM View", img) # 창을 띄워서 이미지 보여주기
-            cv2.imshow("mask",mask) # 이미지에서 딴 mask를 창을 띄워서 보여주기
-            cv2.waitKey(1) 
-		
-        # xycar의 default 속도 설정
-        speed = 11
-		
-        # drive() 호출. drive()함수 안에서 모터 토픽이 publish됨.
+        # drive() 호출. drive()함수 안에서 모터 토픽이 발행됨.
         drive(angle, speed)
 
 
 #=============================================
 # 메인 함수
-# 가장 먼저 호출되는 함수로 여기서 start() 함수를 호출함.
-# start() 함수가 실질적인 메인 함수임. 
+# 가장 먼저 호출되는 함수로 여기서 start() 함수를 호출함
+# start() 함수가 실질적인 메인 함수임.
 #=============================================
 if __name__ == '__main__':
     start()
