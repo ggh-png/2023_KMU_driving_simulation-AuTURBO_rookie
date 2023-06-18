@@ -21,6 +21,7 @@ class PreProcessor():
         cv2.circle(img, (int(src[2][0]), int(src[2][1])), 1, (0,0 ,255), 10)
         cv2.circle(img, (int(src[3][0]), int(src[3][1])), 1, (255,255 ,0), 10)
 
+
         # cv2.circle(img, (int(dst[0][0]), int(dst[0][1])), 1, (255,0 ,0), 10)
         # cv2.circle(img, (int(dst[1][0]), int(dst[1][1])), 1, (0,255 ,0), 10)
         # cv2.circle(img, (int(dst[2][0]), int(dst[2][1])), 1, (0,0 ,255), 10)
@@ -110,150 +111,90 @@ class PreProcessor():
         ly = []
         rx = []
         ry = []
-        window_width = 10
-        window_height = 5
+        window_width = 12
+        window_height = 4
+        left_window_n = 0
+        right_window_n = 0
         msk = img.copy()
         msk = cv2.cvtColor(msk, cv2.COLOR_GRAY2BGR)
 
         while y>0:
-            ## Left threshold
-            window = img[y-window_height:y, left_base-window_width:left_base+window_width]
-        # if len(lx) != 0 and len(ly) != 0:
-        #     left_fit = np.polyfit(ly, lx, 3)
-
-        #     ploty = np.linspace(0, warped_img.shape[0] - 1, warped_img.shape[0])
-        #     left_lane_fitx = left_fit[0] * ploty ** 3 + left_fit[1] * ploty ** 2 + left_fit[2] * ploty + left_fit[3]
-        #     #left_lane_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
-
-        #     # 좌우 차선을 연결하기 위해 포인트 생성
-        #     left_points = np.array([np.transpose(np.vstack([left_lane_fitx, ploty]))])
-        #     cv2.polylines(warped_img, np.int32([left_points]), isClosed=False, color=(255, 0, 0), thickness=5)
-        #     #print(left_points[0][149][0], left_points[0][149][1])
-        #     cv2.circle(warped_img, left_points[0], left_points[1], 3, (255, 0, 0), 3)
-        #     #print(lx)
-
-        # if len(rx) != 0 and len(ry) != 0: 
-        #     right_fit = np.polyfit(ry, rx, 3)
-
-        #     # Generate x and y values for plotting
-
-        #     ploty = np.linspace(0, warped_img.shape[0] - 1, warped_img.shape[0])
-        #     right_lane_fitx = right_fit[0] * ploty ** 3 + right_fit[1] * ploty ** 2 + right_fit[2] * ploty + right_fit[3]
-        #     #right_lane_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
-
-        #     #return lane_fitx, lane_fit
-
-        #     # 좌우 차선을 연결하기 위해 포인트 생성
-        #     right_points = np.array([np.flipud(np.transpose(np.vstack([right_lane_fitx, ploty])))])
-        #     #points = np.hstack((left_points, right_points))
-
-        #     # 찾은 라인을 이미지에 그리기
-        #     #cv2.polylines(warped_img, np.int32([points]), isClosed=False, color=(0, 255, 0), thickness=10)
-        #     #print(right_points[0][0][0], right_points[0][0][1])
-        #     cv2.polylines(warped_img, np.int32([right_points]), isClosed=False, color=(0, 255, 0), thickness=5)
-            #cv2.waitKey(0)
-
-            contours, _ = cv2.findContours(window, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            # print(len(contours))
-            if(len(contours) == 0): # 차선을 못 찾았을떄
-                if prev_detect_flag_left == False: # 차선을 연속으로 못 찾았을떄
-                    line_detect_fail_count_left+=1
-                    cv2.circle(msk, (left_base-window_width-20, y-(window_height//2)), 1, (0,50,150), 1)
-
-                prev_detect_flag_left = False
-                cv2.circle(msk, (left_base-window_width, y-(window_height//2)), 1, (0,125,125), 1)
             
-        # if len(lx) != 0 and len(ly) != 0:
-        #     left_fit = np.polyfit(ly, lx, 3)
+            if left_window_n < 6:
+                ## Left threshold
+                window = img[y-window_height:y, left_base-window_width:left_base+window_width]
 
-        #     ploty = np.linspace(0, warped_img.shape[0] - 1, warped_img.shape[0])
-        #     left_lane_fitx = left_fit[0] * ploty ** 3 + left_fit[1] * ploty ** 2 + left_fit[2] * ploty + left_fit[3]
-        #     #left_lane_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
+                contours, _ = cv2.findContours(window, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                # print(len(contours))
+                if(len(contours) == 0): # 차선을 못 찾았을떄
+                    if prev_detect_flag_left == False: # 차선을 연속으로 못 찾았을떄
+                        line_detect_fail_count_left+=1
+                        cv2.circle(msk, (left_base-window_width-20, y-(window_height//2)), 1, (0,50,150), 1)
 
-        #     # 좌우 차선을 연결하기 위해 포인트 생성
-        #     left_points = np.array([np.transpose(np.vstack([left_lane_fitx, ploty]))])
-        #     cv2.polylines(warped_img, np.int32([left_points]), isClosed=False, color=(255, 0, 0), thickness=5)
-        #     #print(left_points[0][149][0], left_points[0][149][1])
-        #     cv2.circle(warped_img, left_points[0], left_points[1], 3, (255, 0, 0), 3)
-        #     #print(lx)
-
-        # if len(rx) != 0 and len(ry) != 0: 
-        #     right_fit = np.polyfit(ry, rx, 3)
-
-        #     # Generate x and y values for plotting
-
-        #     ploty = np.linspace(0, warped_img.shape[0] - 1, warped_img.shape[0])
-        #     right_lane_fitx = right_fit[0] * ploty ** 3 + right_fit[1] * ploty ** 2 + right_fit[2] * ploty + right_fit[3]
-        #     #right_lane_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
-
-        #     #return lane_fitx, lane_fit
-
-        #     # 좌우 차선을 연결하기 위해 포인트 생성
-        #     right_points = np.array([np.flipud(np.transpose(np.vstack([right_lane_fitx, ploty])))])
-        #     #points = np.hstack((left_points, right_points))
-
-        #     # 찾은 라인을 이미지에 그리기
-        #     #cv2.polylines(warped_img, np.int32([points]), isClosed=False, color=(0, 255, 0), thickness=10)
-        #     #print(right_points[0][0][0], right_points[0][0][1])
-        #     cv2.polylines(warped_img, np.int32([right_points]), isClosed=False, color=(0, 255, 0), thickness=5)
-            if line_detect_fail_count_left < 4:
+                    prev_detect_flag_left = False
+                    cv2.circle(msk, (left_base-window_width, y-(window_height//2)), 1, (0,125,125), 1)
                 
-                cv2.circle(msk, (left_base-window_width, y-(window_height//2)), 1, (0,255,0), 1)
+                if line_detect_fail_count_left < 5:
+                    
+                    cv2.circle(msk, (left_base-window_width, y-(window_height//2)), 1, (0,255,0), 1)
 
-                for contour in contours:
-                    M = cv2.moments(contour)
-                    if M["m00"] != 0:
-                        cx = int(M["m10"]/M["m00"])
-                        cy = int(M["m01"]/M["m00"])
-                        lx.append(left_base-window_width + cx)
-                        ly.append(y-(window_height//2))
-                        cv2.circle(msk, (left_base-window_width + cx, y-(window_height//2)), 1, (255,0,0), 1)
-                        left_base = left_base-window_width + cx
-                        cv2.rectangle(msk, (left_base-window_width,y), (left_base+window_width,y-window_height), (255,0,0), 1)
-                        self.left_line_detect_flag = True
-                        
+                    for contour in contours:
+                        M = cv2.moments(contour)
+                        if M["m00"] != 0:
+                            cx = int(M["m10"]/M["m00"])
+                            cy = int(M["m01"]/M["m00"])
+                            lx.append(left_base-window_width + cx)
+                            ly.append(y-(window_height//2))
+                            cv2.circle(msk, (left_base-window_width + cx, y-(window_height//2)), 1, (255,0,0), 1)
+                            left_base = left_base-window_width + cx
+                            cv2.rectangle(msk, (left_base-window_width,y), (left_base+window_width,y-window_height), (255,0,0), 1)
+                            self.left_line_detect_flag = True
+                            left_window_n += 1         
 
-            if len(lx) < 1:
-                #print("Left line No")
-                self.left_line_detect_flag = False
+                if len(lx) < 1:
+                    #print("Left line No")
+                    self.left_line_detect_flag = False
             
             ## Right threshold
             
-            window = img[y-window_height:y, right_base-window_width:right_base+window_width]
-            contours, _ = cv2.findContours(window, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            if right_window_n < 6:
+                window = img[y-window_height:y, right_base-window_width:right_base+window_width]
+                contours, _ = cv2.findContours(window, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-            if(len(contours) == 0): # 차선을 못 찾았을떄
-                if prev_detect_flag_right == False: # 차선을 연속으로 못 찾았을떄
-                    line_detect_fail_count_right+=1
-                    cv2.circle(msk, (right_base-window_width-20, y-(window_height//2)), 1, (0,255,0), 1)
+                if(len(contours) == 0): # 차선을 못 찾았을떄
+                    if prev_detect_flag_right == False: # 차선을 연속으로 못 찾았을떄
+                        line_detect_fail_count_right+=1
+                        cv2.circle(msk, (right_base-window_width-20, y-(window_height//2)), 1, (0,255,0), 1)
 
-                prev_detect_flag_right = False
-                cv2.circle(msk, (right_base-window_width-10, y-(window_height//2)), 1, (0,255,255), 1)
-            
-            if line_detect_fail_count_right < 4:
-                cv2.circle(msk, (right_base-window_width, y-(window_height//2)), 1, (0,0,255), 1)
+                    prev_detect_flag_right = False
+                    cv2.circle(msk, (right_base-window_width-10, y-(window_height//2)), 1, (0,255,255), 1)
+                
+                if line_detect_fail_count_right < 5:
+                    cv2.circle(msk, (right_base-window_width, y-(window_height//2)), 1, (0,0,255), 1)
 
-                for contour in contours:
-                    M = cv2.moments(contour)
-                    if M["m00"] != 0:
-                        cx = int(M["m10"]/M["m00"])
-                        cy = int(M["m01"]/M["m00"])
-                        rx.append(right_base-window_width + cx)
-                        ry.append(y-(window_height//2))
-                        cv2.circle(msk, (right_base-window_width + cx, y-(window_height//2)), 1, (0,255,0), 1)
-                        right_base = right_base-window_width + cx
-                        cv2.rectangle(msk, (right_base-window_width,y), (right_base+window_width,y-window_height), (0,255,0), 1)
-                        prev_detect_flag_right = True
-                        self.right_line_detect_flag = True
-            
-            if len(rx) < 1:
-                #print("Right line No")
-                self.right_line_detect_flag = False
+                    for contour in contours:
+                        M = cv2.moments(contour)
+                        if M["m00"] != 0:
+                            cx = int(M["m10"]/M["m00"])
+                            cy = int(M["m01"]/M["m00"])
+                            rx.append(right_base-window_width + cx)
+                            ry.append(y-(window_height//2))
+                            cv2.circle(msk, (right_base-window_width + cx, y-(window_height//2)), 1, (0,255,0), 1)
+                            right_base = right_base-window_width + cx
+                            cv2.rectangle(msk, (right_base-window_width,y), (right_base+window_width,y-window_height), (0,255,0), 1)
+                            prev_detect_flag_right = True
+                            self.right_line_detect_flag = True
+                
+                if len(rx) < 1:
+                    #print("Right line No")
+                    self.right_line_detect_flag = False
+                right_window_n += 1
 
             # cv2.rectangle(msk, (left_base-window_width,y), (left_base+window_width,y-window_height), (0,0,255), 1)
             # cv2.rectangle(msk, (right_base-window_width,y), (right_base+window_width,y-window_height), (0,0,255), 1)
             y -= window_height
         return msk, lx, ly, rx, ry
+
     
     def overlay_line(self, warped_img, lx, ly, rx, ry):
         # Fit a third order polynomial to each
