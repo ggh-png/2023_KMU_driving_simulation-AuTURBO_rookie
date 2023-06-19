@@ -1,0 +1,3 @@
+<launch>
+  <node name="lane_control" pkg="assignment_2" type="lane_control.py" output="screen"/>
+</launch>
