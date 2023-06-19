@@ -3,16 +3,23 @@ import cv2
 import os
 import matplotlib.pyplot as plt
 
+# 이미지 전처리와 차선 검출에 관련된 메서드들을 포함하는 클래스
 class PreProcessor():
+    # 해당 클래스의 인스턴스를 초기화
     def __init__(self, roi_height, roi_width):
         self.roi_height = roi_height
         self.roi_width = roi_width
         self.left_line_detect_flag = False
         self.right_line_detect_flag = False
 
+    # 입력 이미지를 원근 변환(perspective transformation)을 통해 변형시키는 메서드
+    # src와 dst는 변환에 사용되는 좌표들을 나타내는 배열
     def warp_perspect(self, img):
+        # src와 dst는 변환에 사용되는 좌표들을 나타내는 배열
         src = np.float32([[0, 0], [0, self.roi_height-50 ],  [self.roi_width, 0], [640, self.roi_height-50 ]])
         dst = np.float32([[0, 0], [272, self.roi_height-50 ], [self.roi_width, 0], [367, self.roi_height-50 ]])
+        
+        # 변환 행렬 M과 역변환 행렬 Minv를 생성
         M = cv2.getPerspectiveTransform(src, dst) # The transformation matrix
         Minv = cv2.getPerspectiveTransform(dst, src) # Inverse transformation
 
@@ -21,18 +28,14 @@ class PreProcessor():
         cv2.circle(img, (int(src[2][0]), int(src[2][1])), 1, (0,0 ,255), 10)
         cv2.circle(img, (int(src[3][0]), int(src[3][1])), 1, (255,255 ,0), 10)
 
-
-        # cv2.circle(img, (int(dst[0][0]), int(dst[0][1])), 1, (255,0 ,0), 10)
-        # cv2.circle(img, (int(dst[1][0]), int(dst[1][1])), 1, (0,255 ,0), 10)
-        # cv2.circle(img, (int(dst[2][0]), int(dst[2][1])), 1, (0,0 ,255), 10)
-        # cv2.circle(img, (int(dst[3][0]), int(dst[3][1])), 1, (255,255 ,0), 10)
-
         img = img[280:(280+self.roi_height-50), 0:self.roi_width] # Apply np slicing for ROI crop
 
+        # 이미지를 원근 변환
         warped_img = cv2.warpPerspective(img, M, (self.roi_width, self.roi_height-50), flags=cv2.INTER_LINEAR) # Image warping
-
         return warped_img
 
+    # 입력 이미지에서 흰색 부분을 추출하는 메서드
+    # 입력 이미지를 BGR에서 HSV 색 공간으로 변환한 후, 미리 설정된 범위(흰색)에 해당하는 색상만 마스킹하여 추출
     def color_filter(self, img):
         # BGR to HSV 변환
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -53,50 +56,31 @@ class PreProcessor():
 
         return white_parts
 
+    # 입력 이미지에서 차선의 히스토그램을 생성하고, 히스토그램에서 왼쪽 차선과 오른쪽 차선의 기준점을 찾는 메서드
+    # np.sum() 함수를 사용하여 이미지의 아래 절반부분에서 각 열의 합을 구한 뒤, 
+    # 히스토그램의 중간 지점을 계산하여 이를 기준으로 왼쪽과 오른쪽 차선의 기준점을 계산하고 반환
     def hist_line_peak(self, img):
-        left_margin = 10 
-        right_margin = 10 
-        # if self.left_line_detect_flag == True and self.right_line_detect_flag == False:
-        #     right_margin = 50
-        
-        # if self.left_line_detect_flag == False and self.right_line_detect_flag == True:
-        #     left_margin = 50
-
-        #print(f'left: {self.left_line_detect_flag}')
-        #print(f'right: {self.right_line_detect_flag}')
-        #Histogram
-        #print(img.shape)
-        #cv2.imshow("hist", img[140:, :])
-
-        #histogram = np.sum(img[img.shape[0]//2 + 20:, :], axis=0)
         histogram = np.sum(img[140:, :], axis=0)
         midpoint = np.int(histogram.shape[0]/2)
 
-        #print(histogram.shape)
-        #print(len(histogram))
         left_hist_result = np.argmax(histogram[:midpoint])
         right_hist_result = np.argmax(histogram[midpoint:])
 
-        #print(right_hist_result)
         if right_hist_result == 0:
-            #self.right_line_detect_flag = False
             right_base = right_hist_result + midpoint +90
         else:
-            #self.right_line_detect_flag = True
             right_base = midpoint + right_hist_result
 
         if left_hist_result == 0:
-            #self.right_line_detect_flag = False
             left_base = left_hist_result + midpoint -90
         else:
-            #self.right_line_detect_flag = True
             left_base = left_hist_result
 
-        #left_base = np.argmax(histogram[:midpoint - left_margin])
-        
-        #print(left_base, right_base)
         return left_base, right_base
 
+    # 입력 이미지에서 슬라이딩 윈도우 방식을 사용하여 차선을 검출하는 메서드
+    # 이전에 검출한 차선의 상태를 고려하고, 윈도우를 이용하여 차선을 검출
+    # 검출된 차선의 좌표들을 저장하고, 결과 이미지와 함께 반환
     def sliding_window(self, img):
         prev_detect_flag_left = False
         prev_detect_flag_right = False
@@ -194,43 +178,3 @@ class PreProcessor():
             # cv2.rectangle(msk, (right_base-window_width,y), (right_base+window_width,y-window_height), (0,0,255), 1)
             y -= window_height
         return msk, lx, ly, rx, ry
-
-    
-    def overlay_line(self, warped_img, lx, ly, rx, ry):
-        # Fit a third order polynomial to each
-
-        # if len(lx) != 0 and len(ly) != 0:
-        #     left_fit = np.polyfit(ly, lx, 3)
-
-        #     ploty = np.linspace(0, warped_img.shape[0] - 1, warped_img.shape[0])
-        #     left_lane_fitx = left_fit[0] * ploty ** 3 + left_fit[1] * ploty ** 2 + left_fit[2] * ploty + left_fit[3]
-        #     #left_lane_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
-
-        #     # 좌우 차선을 연결하기 위해 포인트 생성
-        #     left_points = np.array([np.transpose(np.vstack([left_lane_fitx, ploty]))])
-        #     cv2.polylines(warped_img, np.int32([left_points]), isClosed=False, color=(255, 0, 0), thickness=5)
-        #     #print(left_points[0][149][0], left_points[0][149][1])
-        #     cv2.circle(warped_img, left_points[0], left_points[1], 3, (255, 0, 0), 3)
-        #     #print(lx)
-
-        # if len(rx) != 0 and len(ry) != 0: 
-        #     right_fit = np.polyfit(ry, rx, 3)
-
-        #     # Generate x and y values for plotting
-
-        #     ploty = np.linspace(0, warped_img.shape[0] - 1, warped_img.shape[0])
-        #     right_lane_fitx = right_fit[0] * ploty ** 3 + right_fit[1] * ploty ** 2 + right_fit[2] * ploty + right_fit[3]
-        #     #right_lane_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
-
-        #     #return lane_fitx, lane_fit
-
-        #     # 좌우 차선을 연결하기 위해 포인트 생성
-        #     right_points = np.array([np.flipud(np.transpose(np.vstack([right_lane_fitx, ploty])))])
-        #     #points = np.hstack((left_points, right_points))
-
-        #     # 찾은 라인을 이미지에 그리기
-        #     #cv2.polylines(warped_img, np.int32([points]), isClosed=False, color=(0, 255, 0), thickness=10)
-        #     #print(right_points[0][0][0], right_points[0][0][1])
-        #     cv2.polylines(warped_img, np.int32([right_points]), isClosed=False, color=(0, 255, 0), thickness=5)
-       
-        return warped_img
