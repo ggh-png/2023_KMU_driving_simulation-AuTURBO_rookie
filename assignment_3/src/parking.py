@@ -152,11 +152,6 @@ flag_for = 1
 #=============================================
 
 def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
-<<<<<<< HEAD
-    global rx, ry
-    angle = 0  # -50 ~ 50
-    speed = 50 # -50 ~ 50
-=======
     # planning 함수에서 생성한 경로를 tracking 함수에서 사용해야 하기 때문에 전역변수로 선언한다.
     global rx, ry, ryaw, rdirect, path_x, path_y
     # tracking 함수를 시작할 때 1회만 실행되는 flag
@@ -164,7 +159,6 @@ def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
 
     # 차량이 지나온 경로를 저장하는 리스트 - 디버깅시 사용
     global x_rec, y_rec
->>>>>>> WS
     
     # 차량이 제어되는 시간을 저장하는 변수
     global t
