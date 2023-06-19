@@ -5,7 +5,7 @@
 
 ---
 
-[simplescreenrecorder-2023-06-16_12.21.58.mp4](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/08247cb2-6ff6-418c-8f88-75cb52d7fd37/simplescreenrecorder-2023-06-16_12.21.58.mp4)
+![Alt Text](etc/ass_1.gif)
 
 ## Work flow
 
@@ -43,7 +43,7 @@ https://www.youtube.com/watch?v=UoUDTJGDGEE
 
 ---
 
-[simplescreenrecorder-2023-06-12_19.42.54.mp4](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/1e20f043-a852-4fa5-a1f4-d691d4c4bd8d/simplescreenrecorder-2023-06-12_19.42.54.mp4)
+![Alt Text](etc/ass_3.gif)
 
 ## Work flow
 
