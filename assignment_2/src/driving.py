@@ -77,9 +77,9 @@ def drive(angle, speed):
 #=============================================
 
 errorPrev = 0
-proportional_gain = 0.8 #0.7
-integral_gain = 0 #0.0001
-derivative_gain = 2.00#8.5
+proportional_gain = 0.52 #0.7
+integral_gain = 0.0000002 #0.0001
+derivative_gain = 8.00#8.5
 error_sum = 0
 
 def calculate_PID(reference_input, feedback_input):
@@ -154,19 +154,65 @@ def start():
 
         overlay_img = pre_module.overlay_line(warped_img, lx, ly, rx, ry)
 
-        if len(lx) != 0 and len(rx) != 0 :
-            target = (lx[0] + rx[0]) // 2
-            speed = 50
-        elif len(lx) != 0 and len(rx) == 0:
-            target = lx[0] + 50
+        # if len(lx) != 0 and len(ly) != 0 :
+        #     w = lx[-1] - lx[0]
+        #     h = ly[-1] - ly[0]
+        #     rad = atan2(h, w)
+        #     line_angle = abs(degrees(rad))
+
+        #     print(f"left angle:{line_angle}")
+
+        # if len(rx) != 0 and len(ry) != 0 :
+        #     w = rx[-1] - rx[0]
+        #     h = ry[-1] - ry[0]
+        #     rad = atan2(h, w)
+        #     line_angle = abs(degrees(rad))
+
+        #     print(f"right angle:{line_angle}")
+
+        if len(lx) > 2 and len(rx) > 2 :
+            target = (lx[len(lx) // 2] + rx[len(rx) // 2]) // 2
+            speed = 40
+        elif len(lx) > 2 and len(rx) == 0: # 왼쪽 차선만 있을때
+            if len(lx) > 2 and len(ly) > 2: # 오른쪽 차선 각도 구하기
+                w = lx[-1] - lx[0]
+                h = ly[-1] - ly[0]
+                rad = atan2(h, w)
+                line_angle = abs(degrees(rad))
+
+                print(f"left angle:{line_angle}")
+
+                if line_angle > 120: # 왼쪽으로 기울어져 있으면
+                    target = 275
+                    print("left!!!")
+                else:
+                    target = lx[len(lx) // 2] + 50
+            else:
+                target = lx[len(lx) // 2] + 50
             #print("left only")
-            speed = 50
-        elif len(lx) == 0 and len(rx) != 0:
-            target = rx[0] - 50
-            speed = 50
+            speed = 35
+        elif len(lx) == 0 and len(rx) > 2: # 오른쪽 차선만 있을때
+            if len(rx) > 2 and len(ry) > 2: # 오른쪽 차선 각도 구하기
+                w = rx[-1] - rx[0]
+                h = ry[-1] - ry[0]
+                rad = atan2(h, w)
+                line_angle = abs(degrees(rad))
+
+                print(f"right angle:{line_angle}")
+
+                if line_angle < 57: # 오른쪽으로 기울어져 있으면
+                    target = 375  
+                    print("right!!!")
+                else:
+                    target = rx[len(rx) // 2] - 50
+            else:
+                target = rx[len(rx) // 2] - 50
+            speed = 35
             #print("right only")
-        #print(f"target: {target}")
-        cv2.circle(msk, (target, 120), 3, (255, 0, 0), 4)
+        print(f"target: {target}")
+
+        if target != None:
+            cv2.circle(msk, (target, 120), 3, (255, 0, 0), 4)
         cv2.circle(msk, (320, 120), 3, (0, 0, 255), 2)
         cv2.imshow("Lane Detection - Sliding Windows", msk)
         
@@ -178,7 +224,7 @@ def start():
         # kd = 1.1
 
         angle = calculate_PID(target, 320)
-        print(f"angle: {angle}")
+        #print(f"angle: {angle}")
         
         #=========================================
         # 핸들 조향각 값인 angle값 정하기.
