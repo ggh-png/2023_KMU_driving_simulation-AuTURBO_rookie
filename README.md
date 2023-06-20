@@ -43,7 +43,7 @@ https://www.youtube.com/watch?v=UoUDTJGDGEE
 
 ---
 
-![Alt Text](etc/ass_3.gif)
+![Alt Text](etc/ass_3_20230620.gif)
 
 ## Work flow
 
