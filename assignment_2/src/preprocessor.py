@@ -245,5 +245,5 @@ class PreProcessor():
 
             # 찾은 라인을 이미지에 그리기
             cv2.polylines(warped_img, np.int32([right_points]), isClosed=False, color=(0, 255, 0), thickness=5)
-
+       
         return warped_img
