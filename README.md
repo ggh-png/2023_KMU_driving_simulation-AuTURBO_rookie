@@ -23,7 +23,7 @@
 
 ---
 
-https://www.youtube.com/watch?v=UoUDTJGDGEE
+![Alt Text](etc/ass_2.gif)
 
 ## Work flow
 
