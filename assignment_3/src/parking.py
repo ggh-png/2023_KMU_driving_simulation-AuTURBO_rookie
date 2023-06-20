@@ -86,7 +86,7 @@ def planning(sx, sy, syaw, max_acceleration, dt):
     # 좀 더 정확한 경로를 생성하기 위해 아래와 같이 3개의 단계로 나누었다. 
     # 1. 주자 라인 진입 100 픽셀 전에 경로를 생성한다.
     # 2. AR 태그의 위치에서 60 픽셀 전에 경로를 생성한다.
-    states = [(sx, sy, syaw+90), (P_ENTRY[0]-100, P_ENTRY[1]+100, -45), (AR[0]-55, AR[1]+55, -45)]
+    states = [(sx, sy, syaw+90), (P_ENTRY[0]-100, P_ENTRY[1]+100, -45), (AR[0]-56, AR[1]+56, -35)]
 
     # path planning 알고리즘을 사용하여 경로를 생성한다. reeds_shepp path planning algorithm 사용 
     # motion_planning.py 에서 제공하는 함수를 사용한다.
@@ -248,7 +248,7 @@ def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
             target_speed = 50.0 
             # 차량의 제어 알고리즘에서 사용될 parameter를 설정한다.
             # 전방 주행 차량이나 추종하고자 하는 경로와의 거리를 설정한다. 
-            config.Ld = 120.0
+            config.Ld = 100.0
             # 차량의 정지거리
             config.dist_stop = 10
             # 전방 주행 idx와의 거리
@@ -256,14 +256,14 @@ def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
         # n번째 경로의 방향 리스트의 첫번째 값이 -1이면 후진
         else:
             # 차량제어의 목표 속도를 설정한다.
-            target_speed = 20.0 
+            target_speed = 50.0 
             # 차량의 제어 알고리즘에서 사용될 parameter를 설정한다.
             # 전방 주행 차량이나 추종하고자 하는 경로와의 거리를 설정한다.
             config.Ld = 100
             # 차량의 정지거리
-            config.dist_stop = 10
+            config.dist_stop = 20
             # 전방 주행 idx와의 거리
-            config.dc = 60.68
+            config.dc = 80.68
 
         # 현재 지점에서 목표 지점까지의 거리를 계산한다.
         xt = node.x + config.dc * math.cos(node.yaw)
@@ -310,7 +310,7 @@ def tracking(screen, x, y, yaw, velocity, max_acceleration, dt):
         t += config.dt
         # 차량을 제어한다. - 차량의 조향각과 목표 속도를 입력한다.
         # target_ind*cdirect[0] - 목표 인덱스를 기준으로 차량의 방향을 결정한다.
-        drive(delta, target_ind*cdirect[0])
+        drive(delta, target_speed*cdirect[0])
         # 차량의 현재 정보를 리스트에 추가한다.
         nodes.add(t, node)
         # 차량의 지나온 경로를 리스트에 추가한다. - 디버깅용
