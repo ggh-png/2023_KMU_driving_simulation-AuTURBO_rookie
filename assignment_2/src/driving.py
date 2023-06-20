@@ -37,8 +37,8 @@ image = np.empty(shape=[0]) # 카메라 이미지를 담을 변수
 motor = None # 모터 토픽을 담을 변수
 errorPrev = 0 
 proportional_gain = 0.52 
-integral_gain = 0.00025 #  0.0000002
-derivative_gain = 10.00 # 8.00
+integral_gain = 0.00015 #  0.0000002
+derivative_gain = 15.00 # 8.00
 error_sum = 0
 
 #=============================================
