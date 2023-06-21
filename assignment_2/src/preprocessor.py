@@ -126,8 +126,8 @@ class PreProcessor():
         ly = [] # 왼쪽 차선 Y좌표 저장 리스트
         rx = [] # 오른쪽 차선 X좌표 저장 리스트
         ry = [] # 오른쪽 차선 Y좌표 저장 리스트
-        window_width = 12 # window 폭
-        window_height = 4 # window 높이
+        window_width = 10 # window 폭
+        window_height = 3 # window 높이
         left_window_n = 0
         right_window_n = 0
         msk = img.copy() # 차선검출 결과를 디스플레이 하기 위한 이미지 복사

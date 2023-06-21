@@ -36,9 +36,9 @@ image = np.empty(shape=[0]) # 카메라 이미지를 담을 변수
 #bridge = CvBridge()
 motor = None # 모터 토픽을 담을 변수
 errorPrev = 0 
-proportional_gain = 0.52 
-integral_gain = 0.00015 #  0.0000002
-derivative_gain = 15.00 # 8.00
+proportional_gain = 0.50  # 0.52
+integral_gain = 0.0008 #  0.0000002
+derivative_gain = 10.00 # 15
 error_sum = 0
 
 #=============================================
@@ -158,7 +158,7 @@ def start():
 
         if len(lx) > 2 and len(rx) > 2 : # 왼쪽 차선과 오른쪽 차선 둘다 있을떄는 직선 구간으로 판단
             target = (lx[len(lx) // 2] + rx[len(rx) // 2]) // 2 # 왼쪽차선과 오른쪽 차선의 중앙값을 추종하는 목표 값으로 설정
-            speed = 43 # 직선 구간은 속도를 43으로 설정
+            speed = 30 # 직선 구간은 속도를 43으로 설정
         elif len(lx) > 2 and len(rx) == 0: # 왼쪽 차선만 있을때
             if len(lx) > 2 and len(ly) > 2: # 왼쪽 차선 각도 구하기
                 w = lx[-1] - lx[0] 
@@ -168,12 +168,12 @@ def start():
 
                 print(f"left angle:{line_angle}")
 
-                if line_angle > 90 + 25: # 왼쪽으로 일정 각도 이상 기울어져 있으면 급격한 코너로 판단
-                    target = 250 # 왼쪽으로 회전
+                if line_angle > 90 + 45: # 왼쪽으로 일정 각도 이상 기울어져 있으면 급격한 코너로 판단
+                    target = 300 # 왼쪽으로 회전
                     print("left!!!")
                 else: # 코너가 아닌 왼쪽 차선만 있으면 
                     target = lx[len(lx) // 2] + 50 # 왼쪽 차선과 일정 간격 유지
-            speed = 42 # 속도를 42으로 설정
+            speed = 20 # 속도를 42으로 설정
         elif len(lx) == 0 and len(rx) > 2: # 오른쪽 차선만 있을때
             if len(rx) > 2 and len(ry) > 2: # 오른쪽 차선 각도 구하기
                 w = rx[-1] - rx[0]
@@ -183,12 +183,12 @@ def start():
 
                 print(f"right angle:{line_angle}")
 
-                if line_angle < 90 - 25: # 오른쪽으로 일정 각도 이상 기울어져 있으면 급격한 코너로 판단 57
-                    target = 400 # 오른쪽으로 회전  
+                if line_angle < 90 - 45: # 오른쪽으로 일정 각도 이상 기울어져 있으면 급격한 코너로 판단 57
+                    target = 340 # 오른쪽으로 회전  
                     print("right!!!")
                 else: # 코너가 아닌 오른쪽 차선만 있으면 
                     target = rx[len(rx) // 2] - 50 # 오른쪽 차선과 일정 간격 유지
-            speed = 42 # 속도를 42으로 설정
+            speed = 20 # 속도를 42으로 설정
 
         print(f"target: {target}")
 
