@@ -23,7 +23,7 @@
 
 ---
 
-![Alt Text](etc/ass_2.gif)
+![Alt Text](etc/ass_3_20230621.gif)
 
 ## Work flow
 
